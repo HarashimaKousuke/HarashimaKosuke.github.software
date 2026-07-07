@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学術用語アナロジー翻訳機 | 専門外のための解説生成UI</title>
+    <style>
+        /* --- デザインシステム：大学の発表に馴染む知的でシンプルな配色 --- */
+        :root {
+            --primary-color: #1a365d; /* 理工学研究科のイメージに合うディープネイビー */
+            --accent-bg: #f0f4f8;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #212529;
+            --text-sub: #495057;
+            --border-color: #cfd8dc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.7;
+            padding: 3rem 1rem;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.03);
+        }
+
+        /* --- ヘッダー部分 --- */
+        .app-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.05em;
+        }
+
+        .description {
+            font-size: 0.95rem;
+            color: var(--text-sub);
+        }
+
+        /* --- 入力フォーム --- */
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+            font-size: 0.95rem;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 0.8rem;
+            font-size: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(26, 54, 93, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 0.8rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            letter-spacing: 0.05em;
+        }
+
+        button:hover {
+            background-color: #0d2347;
+        }
+
+        button:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        /* --- ローディング & 結果表示 --- */
+        .loading {
+            text-align: center;
+            color: var(--primary-color);
+            font-weight: bold;
+            display: none;
+            margin: 2rem 0;
+            font-size: 0.95rem;
+        }
+
+        .result-container {
+            margin-top: 2.5rem;
+            padding-top: 2rem;
+            border-top: 1px dashed var(--border-color);
+            display: none; 
+        }
+
+        .result-title {
+            font-size: 1.15rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            font-weight: bold;
+        }
+
+        .result-content {
+            background-color: var(--accent-bg);
+            color: var(--text-main);
+            padding: 1.5rem;
+            border-radius: 4px;
+            white-space: pre-wrap; /* 改行コードを有効化 */
+            font-size: 0.95rem;
+            border-left: 4px solid var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="app-header">
+        <h1>🎓 学術用語アナロジー翻訳機</h1>
+        <p class="description">高度な専門用語を、非専門家向けの比喩・解説に変換します</p>
+    </div>
+
+    <div class="input-group">
+        <label for="keyword">変換したい専門用語</label>
+        <input type="text" id="keyword" placeholder="例：過学習（オーバーフィッティング）、ブロックチェーン、量子もつれ など">
+    </div>
+
+    <button id="translateBtn">非専門家向けの解説を生成</button>
+
+    <div class="loading" id="loadingText">⏳ 適切な比喩表現を構成中...</div>
+
+    <div class="result-container" id="resultContainer">
+        <div class="result-title">非専門家向け解説</div>
+        <div class="result-content" id="resultContent"></div>
+    </div>
+</div>
+
+<script>
+    // ⚠️ Google AI StudioのAPIキーをここに貼り付け
+    const GEMINI_API_KEY = "AIzaSyCauPHkvTOt4NroXCjXBl4fFVo6J1QJJp8"; 
+
+    const translateBtn = document.getElementById('translateBtn');
+    const keywordInput = document.getElementById('keyword');
+    const loadingText = document.getElementById('loadingText');
+    const resultContainer = document.getElementById('resultContainer');
+    const resultContent = document.getElementById('resultContent');
+
+    translateBtn.addEventListener('click', async () => {
+        const word = keywordInput.value.trim();
+        if (!word) {
+            alert('キーワードを入力してください。');
+            return;
+        }
+
+        translateBtn.disabled = true;
+        loadingText.style.display = 'block';
+        resultContainer.style.display = 'none';
+
+        // 大学生・研究発表用にチューニングしたプロンプト
+        const prompt = `あなたは高等教育（大学・大学院）における優れたエデュケーター、または科学コミュニケーションの専門家です。
+ユーザーから提示された専門用語について、他学部や一般の聴衆（非専門家）が直感的に理解できるよう、以下の構成で解説を作成してください。
+
+【出力構成の指定】
+1. ■ 概要
+   専門外の人がイメージしやすいよう、専門的な言葉を使わないようにしつつも論文などに書けるような形で一文で要約してください。
+2. ■ 身近な例え
+   身近な社会現象、日常生活の行動、あるいは一般的な概念に例えて説明してください（例：機械学習の「過学習」を「過去問だけを丸暗記して応用が効かない受験生」に例えるなど）。
+3. ■ 専門外の人に説明する際のポイント
+   この用語をプレゼンテーションや論文の導入で語る際、どのような点に注意して伝えると誤解を招かないか、解説のコツを1、2点アドバイスしてください。
+
+【トーン＆マナー】
+知的で論理的、かつ親しみやすいビジネス・学術的なトーン（〜です、〜ます調）。子ども向けの表現は避けてください。
+アスタリスク（**）やシャープ（###）などのマークダウン記号は、画面が崩れる原因になるため「絶対に」使用しないでください。記号を使わずに、通常の改行と文字だけで読みやすく出力してください
+「はい、承知いたしました」「〜について解説します」といった冒頭の挨拶、前置き、結びの言葉などは「一切」出力しないでください。最初の「■ 概要」の文字から直接書き始めてください。
+
+対象用語：${word}`;
+
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
+
+            if (!response.ok) throw new Error('APIリクエストに失敗しました。');
+
+            const data = await response.json();
+            const aiReply = data.candidates[0].content.parts[0].text;
+
+            resultContent.textContent = aiReply;
+            resultContainer.style.display = 'block';
+
+        } catch (error) {
+            alert('エラーが発生しました：' + error.message);
+            resultContent.textContent = '解説の生成に失敗しました。APIキーを確認してください。';
+            resultContainer.style.display = 'block';
+        } finally {
+            translateBtn.disabled = false;
+            loadingText.style.display = 'none';
+        }
+    });
+
+    keywordInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') translateBtn.click();
+    });
+</script>
+
+</body>
+</html>
